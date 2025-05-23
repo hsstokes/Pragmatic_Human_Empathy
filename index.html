@@ -152,6 +152,7 @@
         let gameStarted = false;
         let soundsLoaded = false;
         let soundInitialized = false;
+        let soldier;
         
         // Canvas dimensions
         let W_WIDTH = 1920;
@@ -265,37 +266,11 @@
                 // Update age
                 this.age++;
             }
-            // Method to draw a rounded rectangle
+            
+            // Method to draw a rounded rectangle - simpler approach
             drawRoundedRect(x, y, radius) {
-                const cornerRadius = radius / 4; 
-                // Adjust this value to control how rounded the corners are
-                
-                beginShape();
-                vertex(x - radius + cornerRadius, y - radius);
-                bezierVertex(
-                    x - radius, y - radius,
-                    x - radius, y - radius,
-                    x - radius, y - radius + cornerRadius);
-                
-                vertex(x - radius, y + radius - cornerRadius);
-                bezierVertex(
-                    x - radius, y + radius,
-                    x - radius, y + radius,
-                    x - radius + cornerRadius, y + radius);
-                
-                vertex(x + radius - cornerRadius, y + radius);
-                bezierVertex(
-                    x + radius, y + radius,
-                    x + radius, y + radius,
-                    x + radius, y + radius - cornerRadius);
-                
-                vertex(x + radius, y - radius + cornerRadius);
-                bezierVertex(
-                    x + radius, y - radius,
-                    x + radius, y - radius,
-                    x + radius - cornerRadius, y - radius);
-                
-                endShape(CLOSE);
+                rectMode(CENTER);
+                rect(x, y, radius * 2, radius * 2, radius / 4);
             }
             
             isFinished() {
@@ -305,82 +280,159 @@
         
         // Preload assets
         function preload() {
-            // Load background
-            gridImg = loadImage('images/grid_img.jpeg');
-            
-            // Load character images
-            for (let i = 1; i <= 6; i++) {
-                walkRight.push(loadImage(`soldier/${i}.png`));
-                walkLeft.push(loadImage(`soldier/L${i}.png`));
+            try {
+                // Load background
+                gridImg = loadImage('images/grid_img.jpeg', 
+                    // Success callback
+                    () => console.log("Background loaded successfully"),
+                    // Error callback
+                    (err) => {
+                        console.error("Error loading background:", err);
+                        // Create fallback gray background
+                        gridImg = createImage(100, 100);
+                        gridImg.loadPixels();
+                        for (let i = 0; i < gridImg.width; i++) {
+                            for (let j = 0; j < gridImg.height; j++) {
+                                gridImg.set(i, j, color(200));
+                            }
+                        }
+                        gridImg.updatePixels();
+                    }
+                );
+                
+                // Load character images
+                for (let i = 1; i <= 6; i++) {
+                    walkRight.push(loadImage(`soldier/${i}.png`, 
+                        () => {}, 
+                        () => {
+                            console.error(`Error loading soldier/${i}.png`);
+                            // Create fallback image
+                            let img = createImage(100, 100);
+                            img.loadPixels();
+                            for (let x = 0; x < img.width; x++) {
+                                for (let y = 0; y < img.height; y++) {
+                                    img.set(x, y, color(100, 100, 255));
+                                }
+                            }
+                            img.updatePixels();
+                            walkRight[i-1] = img;
+                        }
+                    ));
+                    
+                    walkLeft.push(loadImage(`soldier/L${i}.png`, 
+                        () => {}, 
+                        () => {
+                            console.error(`Error loading soldier/L${i}.png`);
+                            // Create fallback image
+                            let img = createImage(100, 100);
+                            img.loadPixels();
+                            for (let x = 0; x < img.width; x++) {
+                                for (let y = 0; y < img.height; y++) {
+                                    img.set(x, y, color(255, 100, 100));
+                                }
+                            }
+                            img.updatePixels();
+                            walkLeft[i-1] = img;
+                        }
+                    ));
+                }
+                
+                // Sound loading
+                soundFormats('mp3');
+                try {
+                    bulletSound = loadSound('sounds/Bulletsound.mp3', 
+                        () => {
+                            console.log("Sound loaded successfully");
+                            soundsLoaded = true;
+                        },
+                        (err) => {
+                            console.error("Error loading sound:", err);
+                            // Create a dummy sound object
+                            bulletSound = {
+                                play: function() { console.log("Playing dummy sound"); },
+                                stop: function() { console.log("Stopping dummy sound"); }
+                            };
+                        }
+                    );
+                } catch (e) {
+                    console.error("Error in sound loading:", e);
+                    // Create a dummy sound object
+                    bulletSound = {
+                        play: function() { console.log("Playing dummy sound"); },
+                        stop: function() { console.log("Stopping dummy sound"); }
+                    };
+                }
+            } catch (e) {
+                console.error("Error in preload:", e);
             }
-            
-            // Sound loading
-            soundFormats('mp3');
-            bulletSound = loadSound('sounds/Bulletsound.mp3');
         }
         
         function setup() {
-            // Create canvas matching game dimensions and place it in the container
-            let canvas;
-            
-            // Calculate the canvas dimensions while maintaining aspect ratio
-            let canvasWidth, canvasHeight;
-            
-            if (windowWidth / windowHeight > W_WIDTH / W_HEIGHT) {
-                // Window is wider than the target aspect ratio
-                canvasHeight = windowHeight;
-                canvasWidth = canvasHeight * (W_WIDTH / W_HEIGHT);
-            } else {
-                // Window is taller than the target aspect ratio
-                canvasWidth = windowWidth;
-                canvasHeight = canvasWidth * (W_HEIGHT / W_WIDTH);
-            }
-            
-            canvas = createCanvas(canvasWidth, canvasHeight);
-            canvas.parent('p5-container');
-            
-            // Make canvas clickable to trigger circles
-            canvas.mousePressed(createCircles);
-            canvas.touchStarted(function() {
-                createCircles();
-                return false;
-            });
-            
-            // Create character with LARGER size (250x250)
-            soldier = new Player(width/2 - 190, height/2 - 190, 380, 380);
-            
-            // Set up start button
-            document.getElementById('startButton').addEventListener('click', startGame);
-            document.getElementById('startButton').addEventListener('touchstart', function(e) {
-                startGame();
-                e.preventDefault();
-            });
-            
-            // Sound button for mobiles
-            document.getElementById('soundButton').addEventListener('click', createCircles);
-            document.getElementById('soundButton').addEventListener('touchstart', function(e) {
-                createCircles();
-                e.preventDefault();
-            });
-            
-            // Add interaction to container div as well
-            document.getElementById('p5-container').addEventListener('click', createCircles);
-            document.getElementById('p5-container').addEventListener('touchstart', function(e) {
-                // Only trigger if game has started and not from control buttons
-                if (gameStarted && e.target.id !== 'soundButton') {
+            try {
+                // Create canvas matching game dimensions and place it in the container
+                let canvas;
+                
+                // Calculate the canvas dimensions while maintaining aspect ratio
+                let canvasWidth, canvasHeight;
+                
+                if (windowWidth / windowHeight > W_WIDTH / W_HEIGHT) {
+                    // Window is wider than the target aspect ratio
+                    canvasHeight = windowHeight;
+                    canvasWidth = canvasHeight * (W_WIDTH / W_HEIGHT);
+                } else {
+                    // Window is taller than the target aspect ratio
+                    canvasWidth = windowWidth;
+                    canvasHeight = canvasWidth * (W_HEIGHT / W_WIDTH);
+                }
+                
+                canvas = createCanvas(canvasWidth, canvasHeight);
+                canvas.parent('p5-container');
+                
+                // Make canvas clickable to trigger circles
+                canvas.mousePressed(createCircles);
+                canvas.touchStarted(function() {
+                    createCircles();
+                    return false;
+                });
+                
+                // Create character with LARGER size (250x250)
+                soldier = new Player(width/2 - 190, height/2 - 190, 380, 380);
+                
+                // Set up start button
+                document.getElementById('startButton').addEventListener('click', startGame);
+                document.getElementById('startButton').addEventListener('touchstart', function(e) {
+                    startGame();
+                    e.preventDefault();
+                });
+                
+                // Sound button for mobiles
+                document.getElementById('soundButton').addEventListener('click', createCircles);
+                document.getElementById('soundButton').addEventListener('touchstart', function(e) {
                     createCircles();
                     e.preventDefault();
+                });
+                
+                // Add interaction to container div as well
+                document.getElementById('p5-container').addEventListener('click', createCircles);
+                document.getElementById('p5-container').addEventListener('touchstart', function(e) {
+                    // Only trigger if game has started and not from control buttons
+                    if (gameStarted && e.target.id !== 'soundButton') {
+                        createCircles();
+                        e.preventDefault();
+                    }
+                });
+                
+                frameRate(12); // Smoother framerate
+                
+                // Create AudioContext
+                window.AudioContext = window.AudioContext || window.webkitAudioContext;
+                try {
+                    window.audioContext = new AudioContext();
+                } catch(e) {
+                    console.error("Could not create AudioContext:", e);
                 }
-            });
-            
-            frameRate(12); // Smoother framerate
-            
-            // Create AudioContext
-            window.AudioContext = window.AudioContext || window.webkitAudioContext;
-            try {
-                window.audioContext = new AudioContext();
-            } catch(e) {
-                console.error("Could not create AudioContext:", e);
+            } catch (e) {
+                console.error("Error in setup:", e);
             }
         }
         
@@ -393,44 +445,54 @@
         }
         
         function startGame() {
-            // Remove overlay
-            document.getElementById('startOverlay').style.display = 'none';
-            
-            // Resume AudioContext if suspended
-            if (window.audioContext && window.audioContext.state === 'suspended') {
-                window.audioContext.resume();
+            try {
+                // Remove overlay
+                document.getElementById('startOverlay').style.display = 'none';
+                
+                // Resume AudioContext if suspended
+                if (window.audioContext && window.audioContext.state === 'suspended') {
+                    window.audioContext.resume();
+                }
+                
+                // Try to unlock audio on iOS
+                unlockAudio();
+                
+                // Initialize sounds
+                initSounds();
+                
+                // Show mobile controls
+                showControls();
+                
+                // Start the game
+                gameStarted = true;
+            } catch (e) {
+                console.error("Error in startGame:", e);
+                // Fallback - force game to start even if there's an error
+                gameStarted = true;
             }
-            
-            // Try to unlock audio on iOS
-            unlockAudio();
-            
-            // Initialize sounds
-            initSounds();
-            
-            // Show mobile controls
-            showControls();
-            
-            // Start the game
-            gameStarted = true;
         }
         
         // Function to unlock audio on iOS
         function unlockAudio() {
-            // Play silent audio to unlock
-            const audioElement = document.createElement('audio');
-            audioElement.setAttribute('src', 'data:audio/mp3;base64,SUQzAwAAAAAAIlRJVDIAAAABAAAASVRTUwAAAAEAAABUQ09OAAAABAAAAE11c2ljLw==');
-            audioElement.setAttribute('playsinline', 'true');
-            audioElement.play();
-            
-            // Create and play a silent oscillator
-            if (window.audioContext) {
-                const oscillator = window.audioContext.createOscillator();
-                const gainNode = window.audioContext.createGain();
-                gainNode.gain.value = 0;
-                oscillator.connect(gainNode);
-                gainNode.connect(window.audioContext.destination);
-                oscillator.start(0);
-                oscillator.stop(0.001);
+            try {
+                // Play silent audio to unlock
+                const audioElement = document.createElement('audio');
+                audioElement.setAttribute('src', 'data:audio/mp3;base64,SUQzAwAAAAAAIlRJVDIAAAABAAAASVRTUwAAAAEAAABUQ09OAAAABAAAAE11c2ljLw==');
+                audioElement.setAttribute('playsinline', 'true');
+                audioElement.play().catch(e => console.log("Silent audio play failed:", e));
+                
+                // Create and play a silent oscillator
+                if (window.audioContext) {
+                    const oscillator = window.audioContext.createOscillator();
+                    const gainNode = window.audioContext.createGain();
+                    gainNode.gain.value = 0;
+                    oscillator.connect(gainNode);
+                    gainNode.connect(window.audioContext.destination);
+                    oscillator.start(0);
+                    oscillator.stop(0.001);
+                }
+            } catch (e) {
+                console.error("Error in unlockAudio:", e);
             }
         }
         
@@ -440,7 +502,7 @@
                 if (window.audioContext && window.audioContext.state === 'suspended') {
                     window.audioContext.resume().then(() => {
                         console.log("AudioContext resumed by initSounds()");
-                    });
+                    }).catch(e => console.error("Error resuming AudioContext:", e));
                 }
                 
                 // Add a direct HTML5 audio for fallback
@@ -459,57 +521,66 @@
                 soundInitialized = true;
             } catch(e) {
                 console.error("Sound initialization failed:", e);
+                // Create fallback dummy sound object
+                bulletSound = {
+                    play: function() { console.log("Playing dummy sound"); },
+                    stop: function() { console.log("Stopping dummy sound"); }
+                };
             }
         }
         
         function createCircles() {
-            // Only proceed if game is started
-            if (!gameStarted) return;
-            
-            // Make multiple attempts to play sound
-            playSound();
-            
-            // Create multiple beautiful random circles
-            const numCircles = random(5, 12); // More circles
-            const centerX = soldier.x + soldier.width / 2;
-            const centerY = soldier.y + soldier.height / 2;
-            
-            for (let i = 0; i < numCircles; i++) {
-                const size = random(7, 16); // Larger initial size
+            try {
+                // Only proceed if game is started
+                if (!gameStarted) return;
                 
-                 // Randomly choose between blue and red colors
-                 let circleColor;
-
-                if (random() < 0.5) { // 50% chance of blue
-                    // Blue colors (low red, low green, high blue)
-                    circleColor = color(
-                        random(0, 50),  // low red
-                        random(0, 100), // low green
-                        random(200, 255)  // high blue
-                    );
-                } else { // 50% chance of red
-                    // Red colors (high red, low green, low blue)
-                    circleColor = color(
-                        random(200, 255), // high red
-                        random(0, 50),    // low green
-                        random(0, 50)     // low blue
-                    );
+                // Make multiple attempts to play sound
+                playSound();
+                
+                // Create multiple beautiful random circles
+                const numCircles = random(5, 12); // More circles
+                const centerX = soldier.x + soldier.width / 2;
+                const centerY = soldier.y + soldier.height / 2;
+                
+                for (let i = 0; i < numCircles; i++) {
+                    const size = random(7, 16); // Larger initial size
+                    
+                     // Randomly choose between blue and red colors
+                     let circleColor;
+    
+                    if (random() < 0.5) { // 50% chance of blue
+                        // Blue colors (low red, low green, high blue)
+                        circleColor = color(
+                            random(0, 50),  // low red
+                            random(0, 100), // low green
+                            random(200, 255)  // high blue
+                        );
+                    } else { // 50% chance of red
+                        // Red colors (high red, low green, low blue)
+                        circleColor = color(
+                            random(200, 255), // high red
+                            random(0, 50),    // low green
+                            random(0, 50)     // low blue
+                        );
+                    }
+                    
+                    bullets.push(new Projectile(
+                        centerX + random(-15, 15),
+                        centerY + random(-15, 15),
+                        size, 
+                        circleColor,
+                        1
+                    ));
                 }
                 
-                bullets.push(new Projectile(
-                    centerX + random(-15, 15),
-                    centerY + random(-15, 15),
-                    size, 
-                    circleColor,
-                    1
-                ));
+                // Set cooldown
+                shoot = 1;
+                
+                // Alternate the character direction for visual interest
+                soldier.last_direction = soldier.last_direction === "right" ? "left" : "right";
+            } catch (e) {
+                console.error("Error in createCircles:", e);
             }
-            
-            // Set cooldown
-            shoot = 1;
-            
-            // Alternate the character direction for visual interest
-            soldier.last_direction = soldier.last_direction === "right" ? "left" : "right";
         }
         
         function playSound() {
@@ -564,88 +635,110 @@
         }
         
         function draw() {
-            if (!gameStarted) return;
-            
-            // Clear the canvas each frame
-            clear();
-            
-            // Draw background - use object-fit:cover style approach
-            let bgWidth, bgHeight;
-            const bgRatio = gridImg.width / gridImg.height;
-            const canvasRatio = width / height;
-            
-            if (bgRatio > canvasRatio) {
-                // Background is wider than canvas
-                bgHeight = height;
-                bgWidth = height * bgRatio;
-            } else {
-                // Background is taller than canvas
-                bgWidth = width;
-                bgHeight = width / bgRatio;
-            }
-            
-            // Center the background
-            const bgX = (width - bgWidth) / 2;
-            const bgY = (height - bgHeight) / 2;
-            
-            // Draw the background
-            image(gridImg, bgX, bgY, bgWidth, bgHeight);
-            
-            // Update bullets
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                bullets[i].draw();
+            try {
+                if (!gameStarted) return;
                 
-                // Remove finished bullets
-                if (bullets[i].isFinished()) {
-                    bullets.splice(i, 1);
+                // Clear the canvas each frame
+                clear();
+                
+                // Draw background - use object-fit:cover style approach
+                let bgWidth, bgHeight;
+                if (gridImg && gridImg.width > 0 && gridImg.height > 0) {
+                    const bgRatio = gridImg.width / gridImg.height;
+                    const canvasRatio = width / height;
+                    
+                    if (bgRatio > canvasRatio) {
+                        // Background is wider than canvas
+                        bgHeight = height;
+                        bgWidth = height * bgRatio;
+                    } else {
+                        // Background is taller than canvas
+                        bgWidth = width;
+                        bgHeight = width / bgRatio;
+                    }
+                    
+                    // Center the background
+                    const bgX = (width - bgWidth) / 2;
+                    const bgY = (height - bgHeight) / 2;
+                    
+                    // Draw the background
+                    image(gridImg, bgX, bgY, bgWidth, bgHeight);
                 }
+                
+                // Update bullets
+                for (let i = bullets.length - 1; i >= 0; i--) {
+                    bullets[i].draw();
+                    
+                    // Remove finished bullets
+                    if (bullets[i].isFinished()) {
+                        bullets.splice(i, 1);
+                    }
+                }
+                
+                // Handle shoot cooldown
+                if (shoot > 0) {
+                    shoot += 1;
+                }
+                if (shoot > 3) {
+                    shoot = 0;
+                }
+                
+                // Draw character
+                if (soldier) {
+                    soldier.draw();
+                }
+            } catch (e) {
+                console.error("Error in draw:", e);
             }
-            
-            // Handle shoot cooldown
-            if (shoot > 0) {
-                shoot += 1;
-            }
-            if (shoot > 3) {
-                shoot = 0;
-            }
-            
-            // Draw character
-            soldier.draw();
         }
         
         function windowResized() {
-            // Resize canvas maintaining aspect ratio
-            let canvasWidth, canvasHeight;
-            
-            if (windowWidth / windowHeight > W_WIDTH / W_HEIGHT) {
-                // Window is wider than the target aspect ratio
-                canvasHeight = windowHeight;
-                canvasWidth = canvasHeight * (W_WIDTH / W_HEIGHT);
-            } else {
-                // Window is taller than the target aspect ratio
-                canvasWidth = windowWidth;
-                canvasHeight = canvasWidth * (W_HEIGHT / W_WIDTH);
-            }
-            
-            resizeCanvas(canvasWidth, canvasHeight);
-            
-            // Reposition sound button
-            if (gameStarted) {
-                // Adjust sound button
-                const soundBtn = document.getElementById('soundButton');
-                soundBtn.style.bottom = '20px';
+            try {
+                // Resize canvas maintaining aspect ratio
+                let canvasWidth, canvasHeight;
+                
+                if (windowWidth / windowHeight > W_WIDTH / W_HEIGHT) {
+                    // Window is wider than the target aspect ratio
+                    canvasHeight = windowHeight;
+                    canvasWidth = canvasHeight * (W_WIDTH / W_HEIGHT);
+                } else {
+                    // Window is taller than the target aspect ratio
+                    canvasWidth = windowWidth;
+                    canvasHeight = canvasWidth * (W_HEIGHT / W_WIDTH);
+                }
+                
+                resizeCanvas(canvasWidth, canvasHeight);
+                
+                // Reposition sound button
+                if (gameStarted) {
+                    // Adjust sound button
+                    const soundBtn = document.getElementById('soundButton');
+                    if (soundBtn) {
+                        soundBtn.style.bottom = '20px';
+                    }
+                }
+            } catch (e) {
+                console.error("Error in windowResized:", e);
             }
         }
         
         // Additional handler to help with iOS audio
         function touchStarted() {
-            unlockAudio();
+            try {
+                unlockAudio();
+            } catch (e) {
+                console.error("Error in touchStarted:", e);
+            }
             return false;
         }
         
         // Mouse click handler (for sound activation)
         function mousePressed() {
-            unlockAudio();
+            try {
+                unlockAudio();
+            } catch (e) {
+                console.error("Error in mousePressed:", e);
+            }
             return false;
         }
     </script>
