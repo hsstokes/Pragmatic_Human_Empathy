@@ -240,13 +240,13 @@
             }
             
             draw() {
-                // Draw the square
+                // Draw the rounded rectangle
                 noStroke();
                 const alpha = map(this.age, 0, this.lifetime, 255, 0);
                 fill(red(this.colour), green(this.colour), blue(this.colour), alpha);
                 
-                // Draw square instead of pentagon 
-                this.drawSquare(this.x, this.y, this.radius);
+                // Draw rounded rectangle instead of square 
+                this.drawRoundedRect(this.x, this.y, this.radius);
                 
                 // Update position
                 this.x += this.velX;
@@ -265,15 +265,37 @@
                 // Update age
                 this.age++;
             }
-            // Method to draw a square changed to pentagon
-            drawSquare(x, y, radius) {
+            // Method to draw a rounded rectangle
+            drawRoundedRect(x, y, radius) {
+                const cornerRadius = radius / 4; 
+                // Adjust this value to control how rounded the corners are
+                
                 beginShape();
-                // Four corners of a square
-                vertex(x - radius, y - radius); // Top-left
-                vertex(x + radius, y - radius); // Top-right
-                vertex(x + radius, y + radius); // Bottom-right
-                vertex(x - radius, y + radius); // Bottom-left
-                endShape(CLOSE); // Close the shape
+                vertex(x - radius + cornerRadius, y - radius);
+                bezierVertex(
+                    x - radius, y - radius,
+                    x - radius, y - radius,
+                    x - radius, y - radius + cornerRadius);
+                
+                vertex(x - radius, y + radius - cornerRadius);
+                bezierVertex(
+                    x - radius, y + radius,
+                    x - radius, y + radius,
+                    x - radius + cornerRadius, y + radius);
+                
+                vertex(x + radius - cornerRadius, y + radius);
+                bezierVertex(
+                    x + radius, y + radius,
+                    x + radius, y + radius,
+                    x + radius, y + radius - cornerRadius);
+                
+                vertex(x + radius, y - radius + cornerRadius);
+                bezierVertex(
+                    x + radius, y - radius,
+                    x + radius, y - radius,
+                    x + radius - cornerRadius, y - radius);
+                
+                endShape(CLOSE);
             }
             
             isFinished() {
